@@ -1,10 +1,12 @@
 name: ClipHUB CI
 
 # Tests run on every pull request into develop/main and on every push to main.
-# Installers are built only on push to main or by hand (workflow_dispatch).
+# Installers are built on push to main, on version tags (v*) and by hand (workflow_dispatch).
+# A tag push also publishes a GitHub Release with stable asset names, which the README links to.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [develop, main]
   workflow_dispatch:
@@ -69,11 +71,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      # Fails until scripts/fetch_ffmpeg.py has a real URL and SHA256 for this platform.
-      # libx264 is GPL: add --allow-gpl here only after the team accepts that licence.
-      - name: Fetch static FFmpeg into bin/
-        run: python scripts/fetch_ffmpeg.py
-
+      # FFmpeg is not bundled yet: the licence (libx264 is GPL) is still a team decision.
+      # The app uses ffmpeg from PATH or /opt/homebrew/bin, so the installers work once ffmpeg is installed.
       - name: Build with PyInstaller
         run: pyinstaller --noconfirm packaging/ClipHUB.spec
 
@@ -93,3 +92,27 @@ jobs:
           path: dist/${{ matrix.artifact }}
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create or update the release
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/ClipHUB-Windows.exe dist/ClipHUB-macOS.dmg \
+            --title "ClipHUB $GITHUB_REF_NAME" --generate-notes \
+          || gh release upload "$GITHUB_REF_NAME" dist/ClipHUB-Windows.exe dist/ClipHUB-macOS.dmg --clobber
