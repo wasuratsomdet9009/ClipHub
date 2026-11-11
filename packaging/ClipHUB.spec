@@ -1,4 +1,4 @@
-D# PyInstaller spec for ClipHUB. Run from the repo root: pyinstaller --noconfirm packaging/ClipHUB.spec
+# PyInstaller spec for ClipHUB. Run from the repo root: pyinstaller --noconfirm packaging/ClipHUB.spec
 # Windows -> dist/ClipHUB.exe (single file). macOS -> dist/ClipHUB.app (folder bundle, packed into a .dmg by CI).
 import sys
 from pathlib import Path
